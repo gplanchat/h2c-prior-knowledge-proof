@@ -1,0 +1,11 @@
+{
+    "name": "example/h2c-proof-sf8",
+    "description": "Symfony 8 variant of the h2c prior knowledge proof",
+    "require": {
+        "php": ">=8.4",
+        "symfony/http-client": "^8.0",
+        "amphp/http-client": "^5",
+        "amphp/http-tunnel": "^2"
+    },
+    "config": {"allow-plugins": {}}
+}
