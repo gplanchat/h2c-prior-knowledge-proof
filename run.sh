@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: ./run.sh sf7|sf8   (PHP=php8.4 by default; needs node and composer)
+# Usage: ./run.sh sf7|sf8   (PHP=php8.4 by default; needs node, npm, go and composer)
 set -u
 variant=${1:?usage: run.sh sf7|sf8}
 cd "$(dirname "$0")"
@@ -8,6 +8,8 @@ export VARIANT_DIR="$PWD/$variant"
 composer_bin=$(command -v composer)
 composer() { "$php" "$composer_bin" "$@"; }
 [ -d "$variant/vendor" ] || composer update -d "$variant" -n -q || { echo "composer failed for $variant" >&2; exit 1; }
+[ -x grpc/bin-grpc-go ] || (cd grpc/go && go build -o ../bin-grpc-go .) || { echo "go build failed" >&2; exit 1; }
+[ -d grpc/node/node_modules ] || (cd grpc/node && npm ci --no-audit --no-fund -s) || { echo "npm ci failed" >&2; exit 1; }
 clients="curl-20 curl-prior sf-curl sf-amp amp-only2"
 base=$((20000 + RANDOM % 20000))
 out=results/$variant.txt
@@ -39,5 +41,18 @@ out=results/$variant.txt
     echo
   done
   kill $spid 2>/dev/null; wait $spid 2>/dev/null
+  gports=($((base+60)) $((base+61)))
+  grpc/bin-grpc-go -addr 127.0.0.1:${gports[0]} 2>/dev/null & gopid=$!
+  node grpc/node/server.js 127.0.0.1:${gports[1]} & jspid=$!
+  sleep 1.5
+  i=0
+  for name in "grpc-go" "grpc-js"; do
+    echo "## Part C: gRPC server $name (unary grpc.health.v1.Health/Check, cleartext)"
+    for c in $clients; do
+      printf '%-11s ' "$c"; timeout 10 $php probe-grpc.php $c "127.0.0.1:${gports[$i]}"
+    done
+    echo; i=$((i+1))
+  done
+  kill $gopid $jspid 2>/dev/null; wait $gopid $jspid 2>/dev/null
 } > "$out" 2>&1
 cat "$out"

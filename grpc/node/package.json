@@ -1,0 +1,6 @@
+{
+  "name": "h2c-proof-grpc-js",
+  "private": true,
+  "description": "gRPC health server on @grpc/grpc-js, cleartext",
+  "dependencies": { "@grpc/grpc-js": "^1.12.0" }
+}

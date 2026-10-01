@@ -15,8 +15,8 @@ amp-only2   {"firstLine":"PRI * HTTP/2.0","hex":"505249202a20485454502f322e300d0
 ## Part B: server h2c-only
 curl-20     FAIL: Received HTTP/0.9 when not allowed
 curl-prior  OK status=200 http_version=3 trailers=["grpc-status: 0"]
-sf-curl     FAIL: Symfony\Component\HttpClient\Exception\TransportException: Received HTTP/0.9 when not allowed for "http://127.0.0.1:21210/".
-sf-amp      FAIL: Symfony\Component\HttpClient\Exception\TransportException: Receiving the response headers for 'http://127.0.0.1:21210/' failed, because the socket to '127.0.0.1:21210' @
+sf-curl     FAIL: Symfony\Component\HttpClient\Exception\TransportException: Received HTTP/0.9 when not allowed for "http://127.0.0.1:29398/".
+sf-amp      FAIL: Symfony\Component\HttpClient\Exception\TransportException: Receiving the response headers for 'http://127.0.0.1:29398/' failed, because the socket to '127.0.0.1:29398' @
 amp-only2   OK status=200 protocol=2 trailers={"grpc-status":["0"]}
 
 ## Part B: server http1-only
@@ -25,4 +25,18 @@ curl-prior  FAIL: Remote peer returned unexpected data while we expected SETTING
 sf-curl     OK status=200 http_version=2
 sf-amp      OK status=200 http_version=
 amp-only2   FAIL: Amp\Http\Client\SocketException: Connection closed before HTTP/2 settings could be received
+
+## Part C: gRPC server grpc-go (unary grpc.health.v1.Health/Check, cleartext)
+curl-20     FAIL: Received HTTP/0.9 when not allowed
+curl-prior  OK status=200 body=00000000020801 trailers=["grpc-status: 0"]
+sf-curl     FAIL: Symfony\Component\HttpClient\Exception\TransportException: Received HTTP/0.9 when not allowed for "http://127.0.0.1:29408/grpc.health.v1.Health/Check".
+sf-amp      FAIL: Symfony\Component\HttpClient\Exception\TransportException: Receiving the response headers for 'http://127.0.0.1:29408/grpc.health.v1.Health/Check' failed, because the so
+amp-only2   OK status=200 body=00000000020801 trailers={"grpc-status":["0"],"grpc-message":[""]}
+
+## Part C: gRPC server grpc-js (unary grpc.health.v1.Health/Check, cleartext)
+curl-20     FAIL: Received HTTP/0.9 when not allowed
+curl-prior  OK status=200 body=00000000020801 trailers=["grpc-status: 0"]
+sf-curl     FAIL: Symfony\Component\HttpClient\Exception\TransportException: Received HTTP/0.9 when not allowed for "http://127.0.0.1:29409/grpc.health.v1.Health/Check".
+sf-amp      FAIL: Symfony\Component\HttpClient\Exception\TransportException: Receiving the response headers for 'http://127.0.0.1:29409/grpc.health.v1.Health/Check' failed, because the so
+amp-only2   OK status=200 body=00000000020801 trailers={"grpc-status":["0"],"grpc-message":["OK"]}
 

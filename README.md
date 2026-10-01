@@ -17,7 +17,7 @@ On `http://`, an explicit `http_version: 2.0` never produces cleartext HTTP/2 wi
 | libcurl, `CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE` | `PRI * HTTP/2.0` (the HTTP/2 connection preface) |
 | amphp/http-client, `setProtocolVersions(['2'])` | `PRI * HTTP/2.0` |
 
-Against real servers (Node `http2` for the h2c-only server, Node `http` for the HTTP/1.1-only one):
+Against plain test servers (Node `http2` for the h2c-only server, Node `http` for the HTTP/1.1-only one):
 
 | Client | h2c-only server | HTTP/1.1-only server |
 |---|---|---|
@@ -27,7 +27,19 @@ Against real servers (Node `http2` for the h2c-only server, Node `http` for the 
 | `AmpHttpClient`, `2.0` | fails: the socket is closed | 200 |
 | amphp/http-client `['2']` | 200, trailers `{"grpc-status":["0"]}` | fails: "Connection closed before HTTP/2 settings could be received" |
 
-Symfony 7.4.20 and Symfony 8.1.8 give the same results (`results/sf7.txt`, `results/sf8.txt`).
+Against real gRPC servers, a unary `grpc.health.v1.Health/Check` call on a cleartext port, with `content-type: application/grpc` and `te: trailers`:
+
+| Client | grpc-go 1.84.0 | grpc-js 1.14.5 |
+|---|---|---|
+| libcurl `CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE` | 200, body `00000000020801` (SERVING), trailer `grpc-status: 0` | same |
+| libcurl `CURL_HTTP_VERSION_2_0` | fails: "Received HTTP/0.9 when not allowed" | same |
+| `CurlHttpClient`, `2.0` | fails with the same message | same |
+| `AmpHttpClient`, `2.0` | fails: the socket is closed | same |
+| amphp/http-client `['2']` | 200, same body, trailers `grpc-status: 0` | same |
+
+Symfony 7.4.20 and Symfony 8.1.8 give the same results (`results/sf7.txt`, `results/sf8.txt`). Neither
+release exposes the `trailers` info yet, so the Symfony rows do not read trailers; the libcurl and
+amphp rows read them directly.
 
 What follows from it:
 
@@ -42,7 +54,7 @@ What follows from it:
 ## Run it
 
 Requirements: PHP 8.4 (`AmpHttpClient` with amphp/http-client 5 refuses to load below 8.4) with the
-curl extension, Node.js, Composer.
+curl extension, Node.js with npm, Go, Composer.
 
 ```sh
 ./run.sh sf7   # Symfony 7.4
@@ -55,10 +67,14 @@ or `sf8/`, then writes `results/<variant>.txt`.
 - Part A starts `capture.js`, a raw TCP listener that prints the first bytes each client sends.
 - Part B starts `servers.js`, an h2c-only server that answers 200 with a `grpc-status: 0` trailer
   and an HTTP/1.1-only server, then runs `probe.php` against both.
+- Part C starts two gRPC servers, `grpc/go` (grpc-go with the standard health service, built on first
+  run) and `grpc/node` (`@grpc/grpc-js`, installed on first run), and runs `probe-grpc.php` against
+  both.
 
 ## Limits
 
-- The h2c server is Node `http2`, not a gRPC server.
+- Parts A and B use Node servers that are not gRPC servers; Part C uses grpc-go and grpc-js. A
+  Temporal server, or another server with its own HTTP/2 settings, is not measured.
 - Only Symfony 7.4.20 and 8.1.8 are measured, not the 8.2 development branch.
 - amphp/http-client 4 (the PHP 8.2 path of Symfony 7) is not measured.
 - HTTP/2 through a proxy and `CONNECT` are not covered.
