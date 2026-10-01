@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
-# Usage: ./run.sh sf7|sf8   (PHP=php8.4 by default; needs node, npm, go and composer)
+# Usage: ./run.sh sf7|sf8|sf7-patched|sf8-patched   (PHP=php8.4 by default; needs node, npm, go and composer)
 set -u
-variant=${1:?usage: run.sh sf7|sf8}
+variant=${1:?usage: run.sh sf7|sf8|sf7-patched|sf8-patched}
 cd "$(dirname "$0")"
 php=${PHP:-php8.4}
 export VARIANT_DIR="$PWD/$variant"
 composer_bin=$(command -v composer)
 composer() { "$php" "$composer_bin" "$@"; }
+basevariant=${variant%-patched}
+if [ "$variant" != "$basevariant" ]; then
+  # "-patched": a copy of the base variant with patches/*.patch applied to symfony/http-client
+  [ -d "$basevariant/vendor" ] || composer update -d "$basevariant" -n -q || { echo "composer failed for $basevariant" >&2; exit 1; }
+  if [ ! -d "$variant/vendor" ]; then
+    mkdir -p "$variant"; cp "$basevariant/composer.json" "$basevariant/composer.lock" "$variant/"; cp -r "$basevariant/vendor" "$variant/vendor"
+    for p in patches/*.patch; do patch -s -p1 -d "$variant/vendor/symfony/http-client" < "$p" || { echo "patch $p failed" >&2; exit 1; }; done
+  fi
+fi
 [ -d "$variant/vendor" ] || composer update -d "$variant" -n -q || { echo "composer failed for $variant" >&2; exit 1; }
 [ -x grpc/bin-grpc-go ] || (cd grpc/go && go build -o ../bin-grpc-go .) || { echo "go build failed" >&2; exit 1; }
 [ -d grpc/node/node_modules ] || (cd grpc/node && npm ci --no-audit --no-fund -s) || { echo "npm ci failed" >&2; exit 1; }

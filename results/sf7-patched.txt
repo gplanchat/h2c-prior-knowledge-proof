@@ -1,0 +1,43 @@
+# variant: sf7-patched
+# php: 8.4.26  libcurl: 8.5.0
+# amphp/http-client 5.3.6
+# amphp/socket 2.4.1
+# symfony/http-client 7.4.20
+
+## Part A: first bytes on the wire, cleartext http:// (raw TCP listener)
+curl-20     {"firstLine":"POST / HTTP/1.1","hex":"504f5354202f20485454502f312e310d0a486f73743a2031","upgradeHeader":"h2c"}
+curl-prior  {"firstLine":"PRI * HTTP/2.0","hex":"505249202a20485454502f322e300d0a0d0a534d0d0a0d0a","upgradeHeader":null}
+sf-curl     {"firstLine":"PRI * HTTP/2.0","hex":"505249202a20485454502f322e300d0a0d0a534d0d0a0d0a","upgradeHeader":null}
+sf-amp      {"firstLine":"PRI * HTTP/2.0","hex":"505249202a20485454502f322e300d0a0d0a534d0d0a0d0a","upgradeHeader":null}
+            (further connection) {"firstLine":"PRI * HTTP/2.0","hex":"505249202a20485454502f322e300d0a0d0a534d0d0a0d0a","upgradeHeader":null}
+amp-only2   {"firstLine":"PRI * HTTP/2.0","hex":"505249202a20485454502f322e300d0a0d0a534d0d0a0d0a","upgradeHeader":null}
+            (further connection) {"firstLine":"PRI * HTTP/2.0","hex":"505249202a20485454502f322e300d0a0d0a534d0d0a0d0a","upgradeHeader":null}
+
+## Part B: server h2c-only
+curl-20     FAIL: Received HTTP/0.9 when not allowed
+curl-prior  OK status=200 http_version=3 trailers=["grpc-status: 0"]
+sf-curl     OK status=200 http_version=3
+sf-amp      OK status=200 http_version=
+amp-only2   OK status=200 protocol=2 trailers={"grpc-status":["0"]}
+
+## Part B: server http1-only
+curl-20     OK status=200 http_version=2 trailers=[]
+curl-prior  FAIL: Remote peer returned unexpected data while we expected SETTINGS frame.  Perhaps, peer does not support HTTP/2 properly.
+sf-curl     FAIL: Symfony\Component\HttpClient\Exception\TransportException: Remote peer returned unexpected data while we expected SETTINGS frame.  Perhaps, peer does not support HTTP/2 
+sf-amp      FAIL: Symfony\Component\HttpClient\Exception\TransportException: Connection closed before HTTP/2 settings could be received
+amp-only2   FAIL: Amp\Http\Client\SocketException: Connection closed before HTTP/2 settings could be received
+
+## Part C: gRPC server grpc-go (unary grpc.health.v1.Health/Check, cleartext)
+curl-20     FAIL: Received HTTP/0.9 when not allowed
+curl-prior  OK status=200 body=00000000020801 trailers=["grpc-status: 0"]
+sf-curl     OK status=200 body=00000000020801 trailers_info=null
+sf-amp      OK status=200 body=00000000020801 trailers_info=null
+amp-only2   OK status=200 body=00000000020801 trailers={"grpc-status":["0"],"grpc-message":[""]}
+
+## Part C: gRPC server grpc-js (unary grpc.health.v1.Health/Check, cleartext)
+curl-20     FAIL: Received HTTP/0.9 when not allowed
+curl-prior  OK status=200 body=00000000020801 trailers=["grpc-status: 0"]
+sf-curl     OK status=200 body=00000000020801 trailers_info=null
+sf-amp      OK status=200 body=00000000020801 trailers_info=null
+amp-only2   OK status=200 body=00000000020801 trailers={"grpc-status":["0"],"grpc-message":["OK"]}
+

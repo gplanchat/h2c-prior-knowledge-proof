@@ -1,0 +1,11 @@
+--- a/AmpHttpClient.php
++++ b/AmpHttpClient.php
+@@ -134,6 +134,8 @@
+             $request->setProtocolVersions(match ((float) $options['http_version']) {
+                 1.0 => ['1.0'],
+                 1.1 => ['1.1', '1.0'],
++                // An explicit 2.0 on http:// means HTTP/2 with prior knowledge: amphp treats ['2'] alone as such
++                2.0 => 'http:' === $url['scheme'] ? ['2'] : ['2', '1.1', '1.0'],
+                 default => ['2', '1.1', '1.0'],
+             });
+         }

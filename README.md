@@ -51,14 +51,39 @@ What follows from it:
   as prior knowledge, so the change must apply on `http:` only. On `https:` the fallback list keeps
   ALPN negotiation working.
 
+## With the proposed mapping
+
+`patches/` holds the mapping discussed in the issue, one patch per client:
+
+- `0001-curl-http-version-2-prior-knowledge.patch`: in `CurlHttpClient`, an explicit `http_version: 2.0`
+  on an `http:` URL sets `CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE` instead of `CURL_HTTP_VERSION_2_0`.
+- `0002-amp-http-version-2-prior-knowledge.patch`: in `AmpHttpClient`, an explicit `2.0` on an `http:`
+  URL passes `['2']` instead of `['2', '1.1', '1.0']`.
+
+`./run.sh sf7-patched` and `./run.sh sf8-patched` copy the matching variant, apply both patches to the
+copy's `symfony/http-client`, and run the same matrix (`results/sf7-patched.txt`,
+`results/sf8-patched.txt`). The two patched variants give the same results.
+
+| Case | Unpatched | Patched |
+|---|---|---|
+| Wire, `CurlHttpClient` `2.0` on `http://` | `POST / HTTP/1.1` with `Upgrade: h2c` | `PRI * HTTP/2.0` |
+| Wire, `AmpHttpClient` `2.0` on `http://` | `POST / HTTP/1.1` | `PRI * HTTP/2.0` |
+| h2c-only server, both Symfony clients | fail | 200 |
+| grpc-go and grpc-js, both Symfony clients | fail | 200, body `00000000020801` (SERVING) |
+| HTTP/1.1-only server, both Symfony clients | 200 (the upgrade falls back) | fail: "Remote peer returned unexpected data while we expected SETTINGS frame" (Curl), "Connection closed before HTTP/2 settings could be received" (Amp) |
+
+The patched Symfony rows do not read trailers, since the `trailers` info is not in these releases.
+
 ## Run it
 
 Requirements: PHP 8.4 (`AmpHttpClient` with amphp/http-client 5 refuses to load below 8.4) with the
 curl extension, Node.js with npm, Go, Composer.
 
 ```sh
-./run.sh sf7   # Symfony 7.4
-./run.sh sf8   # Symfony 8.1
+./run.sh sf7           # Symfony 7.4
+./run.sh sf8           # Symfony 8.1
+./run.sh sf7-patched   # Symfony 7.4 with the mapping from patches/
+./run.sh sf8-patched   # Symfony 8.1 with the mapping from patches/
 ```
 
 `PHP=/path/to/php ./run.sh sf8` selects another PHP binary. Each run installs its variant in `sf7/`
@@ -76,5 +101,7 @@ or `sf8/`, then writes `results/<variant>.txt`.
 - Parts A and B use Node servers that are not gRPC servers; Part C uses grpc-go and grpc-js. A
   Temporal server, or another server with its own HTTP/2 settings, is not measured.
 - Only Symfony 7.4.20 and 8.1.8 are measured, not the 8.2 development branch.
+- The patches are a measurement aid, not a proposed change set: they carry no tests, and the
+  Symfony test suite and `https:` URLs are not run against them.
 - amphp/http-client 4 (the PHP 8.2 path of Symfony 7) is not measured.
 - HTTP/2 through a proxy and `CONNECT` are not covered.

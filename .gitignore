@@ -5,3 +5,5 @@ grpc/bin-grpc-go
 grpc/.gopath/
 grpc/.gocache/
 grpc/node/node_modules/
+sf7-patched/
+sf8-patched/
